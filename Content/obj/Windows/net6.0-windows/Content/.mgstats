@@ -1,0 +1,5 @@
+Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
+"C:/Users/chune/Desktop/Eldham/Content/block.png","C:/Users/chune/Desktop/Eldham/Content/bin/Windows/Content/block.xnb","TextureProcessor","Texture2DContent",140,1109,0.1193325
+"C:/Users/chune/Desktop/Eldham/Content/Grass_Tile.png","C:/Users/chune/Desktop/Eldham/Content/bin/Windows/Content/Grass_Tile.xnb","TextureProcessor","Texture2DContent",642,16469,0.0028681
+"C:/Users/chune/Desktop/Eldham/Content/proj.png","C:/Users/chune/Desktop/Eldham/Content/bin/Windows/Content/proj.xnb","TextureProcessor","Texture2DContent",181,341,0.0023043
+"C:/Users/chune/Desktop/Eldham/Content/square.png","C:/Users/chune/Desktop/Eldham/Content/bin/Windows/Content/square.xnb","TextureProcessor","Texture2DContent",170,6229,0.0021796
