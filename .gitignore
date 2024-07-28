@@ -1,1 +1,4 @@
+.config/
 .vs/
+bin/
+obj/
