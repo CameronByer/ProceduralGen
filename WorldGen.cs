@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 using Microsoft.Xna.Framework;
-using SharpDX.Direct2D1.Effects;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace Eldham
 {
     public class WorldGen
     {
-        public static int CHUNK_SIZE = 128;
+        public const int CHUNK_SIZE = 128;
         private int seed;
 
 
@@ -19,207 +16,121 @@ namespace Eldham
             this.seed = seed;
         }
 
-        public double[,] genData(Vector2 pos)
+        public double[,,,] genData(Vector2 pos)
         {
-            Random random = new Random(seed + (int)pos.X + Int32.MaxValue / 2 * (int)pos.Y);
-
-            double[,] data = new double[CHUNK_SIZE, CHUNK_SIZE];
-            for (int i = 0; i < CHUNK_SIZE; i++)
+            double[,,,] data = new double[5, 5, CHUNK_SIZE, CHUNK_SIZE];
+            for (int chunkdx = -2; chunkdx <= 2; chunkdx++)
             {
-                for (int j = 0; j < CHUNK_SIZE; j++)
+                for (int chunkdy = -2; chunkdy <= 2; chunkdy++)
                 {
-                    data[i, j] = random.NextDouble();
+                    Random random = new Random(seed + (int)(pos.X + chunkdx) + Int16.MaxValue / 2 * (int)(pos.Y + chunkdy));
+
+                    for (int i = 0; i < CHUNK_SIZE; i++)
+                    {
+                        for (int j = 0; j < CHUNK_SIZE; j++)
+                        {
+                            data[chunkdx+2, chunkdy+2, i, j] = random.NextDouble();
+                        }
+                    }
                 }
             }
+
             return data;
         }
 
-        public Tile[,] genChunk2(Vector2 pos, Vector2 relPos, double[,][,] data)
+        public Tile[,,,] genChunks(Vector2 pos, Vector2 plotSize)
         {
-            Tile[,] chunk = Tile.grid(CHUNK_SIZE, CHUNK_SIZE);
-            double[,][,] data2 = new double[5, 5][,];
-            for (int i = 0; i < 5; i++)
+
+            Tile[,,,] chunks = new Tile[2 * (int)plotSize.X + 1, 2 * (int)plotSize.Y + 1, CHUNK_SIZE, CHUNK_SIZE];
+
+            double[,,,] data = smoothData(genData(pos), 5);
+
+            for (int chunkdx = -(int)plotSize.X; chunkdx <= (int)plotSize.X; chunkdx++)
             {
-                for (int j = 0; j < 5; j++)
+                for (int chunkdy = -(int)plotSize.Y; chunkdy <= (int)plotSize.Y; chunkdy++)
                 {
-                    data2[i, j] = new double[CHUNK_SIZE, CHUNK_SIZE];
-                }
-            }
-            for (int i = 0; i < CHUNK_SIZE; i++)
-            {
-                for (int j = 0; j < CHUNK_SIZE; j++)
-                {
-                    for (int x = -2; x <= 2; x++)
+                    for (int i = 0; i < CHUNK_SIZE; i++)
                     {
-                        for (int y = -2; y <= 2; y++)
+                        for (int j = 0; j < CHUNK_SIZE; j++)
                         {
-                            int xindex = i + x;
-                            int yindex = j + y;
-                            int datax = (int)relPos.X;
-                            int datay = (int)relPos.Y;
-                            if (xindex < 0)
+                            chunks[chunkdx + 1, chunkdy + 1, i, j] = new Tile();
+                            if (data[chunkdx + 2, chunkdy + 2, i, j] > 0.5f)
                             {
-                                xindex += CHUNK_SIZE;
-                                datax -= 1;
+                                chunks[chunkdx + 1, chunkdy + 1, i, j].set(0);
                             }
-                            if (yindex < 0)
-                            {
-                                yindex += CHUNK_SIZE;
-                                datay -= 1;
-                            }
-                            if (xindex >= CHUNK_SIZE)
-                            {
-                                xindex -= CHUNK_SIZE;
-                                datax += 1;
-                            }
-                            if (yindex >= CHUNK_SIZE)
-                            {
-                                yindex -= CHUNK_SIZE;
-                                datay += 1;
-                            }
-                            data2[datax, datay][i, j] += data[(int)relPos.X, (int)relPos.Y][xindex, yindex];
                         }
                     }
                 }
             }
-            return chunk;
+
+            return chunks;
         }
 
-        public Tile[,] genChunk(Vector2 pos)
+        private double[,,,] smoothData(double[,,,] data, int iterations)
         {
-            Console.Out.WriteLine(pos);
+            double[,,,] tempData = new double[5, 5, CHUNK_SIZE, CHUNK_SIZE];
 
-            Random random = new Random(seed + (int)pos.X + Int32.MaxValue / 2 * (int)pos.Y); //TOPLEFT
-            Random rand2 = new Random(seed + (int)pos.X + 1 + Int32.MaxValue / 2 * (int)pos.Y); //TOPRIGHT
-            Random rand3 = new Random(seed + (int)pos.X + Int32.MaxValue / 2 * (int)(pos.Y + 1)); //BOTLEFT
-            Random rand4 = new Random(seed + (int)pos.X + 1 + Int32.MaxValue / 2 * (int)(pos.Y + 1)); //BOTRIGHT
-
-            Tile[,] chunk = Tile.grid(CHUNK_SIZE, CHUNK_SIZE);
-            double[,] data = new double[CHUNK_SIZE, CHUNK_SIZE];
-            double[,] data2 = new double[CHUNK_SIZE, CHUNK_SIZE];
-            double[,] data3 = new double[CHUNK_SIZE, CHUNK_SIZE];
-            int border = 3;
-
-            for (int i = 0; i <= CHUNK_SIZE / 2; i++)
+            for (int iteration = 0; iteration < iterations; iteration++)
             {
-                for (int j = 0; j < border; j++)
+                for (int chunkx = 0; chunkx < 3; chunkx++)
                 {
-                    data[i, j] = random.NextDouble();
-                    data[j, i] = random.NextDouble();
-                    data[CHUNK_SIZE - i - 1, j] = rand2.NextDouble();
-                    data[CHUNK_SIZE - j - 1, i] = rand2.NextDouble();
-                    data[i, CHUNK_SIZE - j - 1] = rand3.NextDouble();
-                    data[j, CHUNK_SIZE - i - 1] = rand3.NextDouble();
-                    data[CHUNK_SIZE - i - 1, CHUNK_SIZE - j - 1] = rand4.NextDouble();
-                    data[CHUNK_SIZE - j - 1, CHUNK_SIZE - i - 1] = rand4.NextDouble();
-                }
-            }
-            for (int i = border; i < CHUNK_SIZE - border; i++)
-            {
-                for (int j = border; j < CHUNK_SIZE - border; j++)
-                {
-                    data[i, j] = random.NextDouble();
-                }
-            }
-            for (int i = 0; i < CHUNK_SIZE; i++)
-            {
-                for (int j = 0; j < CHUNK_SIZE; j++)
-                {
-                    for (int x = -2; x <= 2; x++)
+                    for (int chunky = 0; chunky < 3; chunky++)
                     {
-                        for (int y = -2; y <= 2; y++)
+                        for (int i = 0; i < CHUNK_SIZE; i++)
                         {
-                            int xindex = i + x;
-                            int yindex = j + y;
-                            if (xindex < 0)
+                            for (int j = 0; j < CHUNK_SIZE; j++)
                             {
-                                xindex = -xindex;
+                                tempData[chunkx+1, chunky+1, i, j] = averageSurroundingData(data, chunkx+1, chunky+1, i, j);
                             }
-                            if (yindex < 0)
-                            {
-                                yindex = -yindex;
-                            }
-                            if (xindex >= CHUNK_SIZE)
-                            {
-                                xindex = -xindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            if (yindex >= CHUNK_SIZE)
-                            {
-                                yindex = -yindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            data2[i, j] += data[xindex, yindex];
                         }
                     }
                 }
+                data = (double[,,,])tempData.Clone();
             }
-            for (int i = 0; i < CHUNK_SIZE; i++)
+
+            return data;
+        }
+
+        private double averageSurroundingData(double[,,,] data, int xChunk, int yChunk, int x, int y)
+        {
+            double total = 0;
+            int count = 0;
+            for (int dx = -2; dx <= 2; dx++)
             {
-                for (int j = 0; j < CHUNK_SIZE; j++)
+                for (int dy = -2; dy <= 2; dy++)
                 {
-                    for (int x = -2; x <= 2; x++)
+                    int xChunkIndex = xChunk;
+                    int yChunkIndex = yChunk;
+
+                    int xIndex = x + dx;
+                    if (xIndex < 0)
                     {
-                        for (int y = -2; y <= 2; y++)
-                        {
-                            int xindex = i + x;
-                            int yindex = j + y;
-                            if (xindex < 0)
-                            {
-                                xindex = -xindex;
-                            }
-                            if (yindex < 0)
-                            {
-                                yindex = -yindex;
-                            }
-                            if (xindex >= CHUNK_SIZE)
-                            {
-                                xindex = -xindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            if (yindex >= CHUNK_SIZE)
-                            {
-                                yindex = -yindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            data3[i, j] += data2[xindex, yindex];
-                        }
+                        xIndex += CHUNK_SIZE;
+                        xChunkIndex -= 1;
                     }
+                    if (xIndex >= CHUNK_SIZE)
+                    {
+                        xIndex -= CHUNK_SIZE;
+                        xChunkIndex += 1;
+                    }
+
+                    int yIndex = y + dy;
+                    if (yIndex < 0)
+                    {
+                        yIndex += CHUNK_SIZE;
+                        yChunkIndex -= 1;
+                    }
+                    if (yIndex >= CHUNK_SIZE)
+                    {
+                        yIndex -= CHUNK_SIZE;
+                        yChunkIndex += 1;
+                    }
+
+                    total += data[xChunkIndex, yChunkIndex, xIndex, yIndex];
+                    count++;
                 }
             }
-            for (int i = 0; i < CHUNK_SIZE; i++)
-            {
-                for (int j = 0; j < CHUNK_SIZE; j++)
-                {
-                    double total = 0;
-                    for (int x = -2; x <= 2; x++)
-                    {
-                        for (int y = -2; y <= 2; y++)
-                        {
-                            int xindex = i + x;
-                            int yindex = j + y;
-                            if (xindex < 0)
-                            {
-                                xindex = -xindex;
-                            }
-                            if (yindex < 0)
-                            {
-                                yindex = -yindex;
-                            }
-                            if (xindex >= CHUNK_SIZE)
-                            {
-                                xindex = -xindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            if (yindex >= CHUNK_SIZE)
-                            {
-                                yindex = -yindex + (CHUNK_SIZE * 2) - 1;
-                            }
-                            total += data3[xindex, yindex];
-                        }
-                    }
-                    if (total <= Math.Pow(24.8, 3) / 2f)
-                    {
-                        chunk[i, j].set(0);
-                    }
-                }
-            }
-            return chunk;
+            return total / count;
         }
     }
 }

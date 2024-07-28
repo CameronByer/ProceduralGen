@@ -19,8 +19,7 @@ namespace Eldham
 
         public WorldGen worldGen;
         Player player;
-        Tile[,][,] chunks;
-        double[,][,] data;
+        Tile[,,,] chunks;
         List<Projectile> proj;
 
         public static Texture2D projTex;
@@ -65,25 +64,10 @@ namespace Eldham
             Console.Out.WriteLine("" + seed);
             worldGen = new WorldGen(seed);
 
-            chunks = new Tile[3, 3][,];
-            data = new double[5, 5][,];
+            chunks = new Tile[3, 3, WorldGen.CHUNK_SIZE, WorldGen.CHUNK_SIZE];
 
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    data[i, j] = worldGen.genData(new Vector2(i - 1, j - 1));
-                }
-            }
+            chunks = worldGen.genChunks(new Vector2(1, 1), new Vector2(1, 1));
 
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-
-                    chunks[i, j] = worldGen.genChunk(new Vector2(i, j));
-                }
-            }
         }
 
         protected override void UnloadContent()
@@ -111,7 +95,7 @@ namespace Eldham
                 int chunky = (int)Math.Floor((float)y / WorldGen.CHUNK_SIZE) + 1;
                 x = (x % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                 y = (y % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
-                chunks[chunkx, chunky][x, y].set(0);
+                chunks[chunkx, chunky, x, y].set(0);
             }
             if (mouseState.RightButton == ButtonState.Pressed)
             {
@@ -121,10 +105,10 @@ namespace Eldham
                 int chunky = (int)Math.Floor((float)y / WorldGen.CHUNK_SIZE) + 1;
                 x = (x % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                 y = (y % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
-                chunks[chunkx, chunky][x, y].kill();
+                chunks[chunkx, chunky, x, y].kill();
             }
 
-            player.Update(gameTime, keyboardState, ref data, ref chunks, proj, worldGen);
+            player.Update(gameTime, keyboardState, ref chunks, proj, worldGen);
 
             base.Update(gameTime);
         }

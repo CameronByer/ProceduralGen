@@ -1,12 +1,14 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SharpDX.Direct3D9;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
 
 namespace Eldham
 {
@@ -32,7 +34,7 @@ namespace Eldham
             curchunk = new Vector2(1, 1);
         }
 
-        public void Update(GameTime gameTime, KeyboardState keyboardState, ref double[,][,] data, ref Tile[,][,] chunks, List<Projectile> proj, WorldGen worldGen)
+        public void Update(GameTime gameTime, KeyboardState keyboardState, ref Tile[,,,] chunks, List<Projectile> proj, WorldGen worldGen)
         {
             friction = 0.95f;
             if (canJump)
@@ -65,13 +67,13 @@ namespace Eldham
             updateGrav();
             updateTileCollision(chunks);
             pos += speed;
-            updateChunks(ref data, ref chunks, worldGen);
+            updateChunks(ref chunks, worldGen);
             updateProjCollision(proj);
 
             camera = pos - new Vector2(Main.screenSize.X / 2 + Tile.SIZE, Main.screenSize.Y / 2 + Tile.SIZE);
         }
 
-        public void Draw(SpriteBatch spriteBatch, Tile[,][,] chunks)
+        public void Draw(SpriteBatch spriteBatch, Tile[,,,] chunks)
         {
             spriteBatch.Draw(texture, pos - camera, Color.White);
 
@@ -92,7 +94,7 @@ namespace Eldham
                     int chunky = 1 + (int)(Math.Floor((float)blocky / WorldGen.CHUNK_SIZE) - Math.Floor((float)py / WorldGen.CHUNK_SIZE));
                     blockx = (blockx % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                     blocky = (blocky % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
-                    chunks[chunkx, chunky][blockx, blocky].Draw(spriteBatch, camera, new Vector2(Tile.SIZE * (blockx + WorldGen.CHUNK_SIZE * (chunkx - 1)), Tile.SIZE * (blocky + WorldGen.CHUNK_SIZE * (chunky - 1))));
+                    chunks[chunkx, chunky, blockx, blocky].Draw(spriteBatch, camera, new Vector2(Tile.SIZE * (blockx + WorldGen.CHUNK_SIZE * (chunkx - 1)), Tile.SIZE * (blocky + WorldGen.CHUNK_SIZE * (chunky - 1))));
                 }
             }
 
@@ -119,62 +121,23 @@ namespace Eldham
             }
         }
 
-        void updateChunks(ref double[,][,] data, ref Tile[,][,] chunks, WorldGen worldGen)
+        void updateChunks(ref Tile[,,,] chunks, WorldGen worldGen)
         {
-            Vector2 change = -new Vector2((float)Math.Floor((pos.X - speed.X) / Tile.SIZE / WorldGen.CHUNK_SIZE), (float)Math.Floor((pos.Y - speed.Y) / Tile.SIZE / WorldGen.CHUNK_SIZE));
-            change = new Vector2((float)Math.Floor(pos.X / Tile.SIZE / WorldGen.CHUNK_SIZE), (float)Math.Floor(pos.Y / Tile.SIZE / WorldGen.CHUNK_SIZE));
+            //Vector2 change = -new Vector2((float)Math.Floor((pos.X - speed.X) / Tile.SIZE / WorldGen.CHUNK_SIZE), (float)Math.Floor((pos.Y - speed.Y) / Tile.SIZE / WorldGen.CHUNK_SIZE));
+            Vector2 change = new Vector2((float)Math.Floor(pos.X / Tile.SIZE / WorldGen.CHUNK_SIZE), (float)Math.Floor(pos.Y / Tile.SIZE / WorldGen.CHUNK_SIZE));
             curchunk += change;
             pos -= change * Tile.SIZE * WorldGen.CHUNK_SIZE;
-            double[,][,] newdata = new double[5, 5][,];
-            for (int i = 0; i < 5; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    if (i + change.X >= 0 && i + change.X <= 4 && j + change.Y >= 0 && j + change.Y <= 4)
-                    {
-                        newdata[i, j] = data[i + (int)change.X, j + (int)change.Y];
-                    }
-                    else
-                    {
-                        newdata[i, j] = worldGen.genData(new Vector2(i + curchunk.X - 2, j + curchunk.Y - 2));
-                    }
-                }
-            }
-            Tile[,][,] newchunks = new Tile[3, 3][,];
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    if (i + change.X >= 0 && i + change.X <= 2 && j + change.Y >= 0 && j + change.Y <= 2)
-                    {
-                        newchunks[i, j] = chunks[i + (int)change.X, j + (int)change.Y];
-                    }
-                    else
-                    {
-                        Console.Out.WriteLine("" + i + " " + j);
-                        newchunks[i, j] = worldGen.genChunk(new Vector2(i + curchunk.X - 1, j + curchunk.Y - 1));//worldGen.genChunk2(new Vector2(i + curchunk.X - 1, j + curchunk.Y - 1), new Vector2(i + 1, j + 1),  data);
-                    }
-                }
-            }
-            /*
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    if (i + change.X >= 0 && i + change.X <= 2 && j + change.Y >= 0 && j + change.Y <= 2)
-                    {
-                        newchunks[i, j] = chunks[i + (int)change.X, j + (int)change.Y];
-                    }
-                    else
-                    {
-                        newchunks[i, j] = worldGen.genChunk(new Vector2(i + curchunk.X - 1, j + curchunk.Y - 1));
-                    }
-                }
-            }*/
-            chunks = newchunks;
-        }
 
-        void updateTileCollision(Tile[,][,] chunks)
+            if (change.Length() != 0)
+            {
+                chunks = worldGen.genChunks(curchunk, new Vector2(1,1));
+                using (StreamWriter writer = new StreamWriter("log.txt", true))
+                {
+                    writer.WriteLine(curchunk.ToString());
+                }
+            }
+        }
+        void updateTileCollision(Tile[,,,] chunks)
         {
             Vector2 newSpeed = new Vector2(0f, 0f);
             Vector2 newPos = pos + speed;
@@ -197,7 +160,7 @@ namespace Eldham
                         int blockx = (x % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                         int blocky = (y % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
 
-                        if (chunks[chunkx, chunky][blockx, blocky].isSolid())
+                        if (chunks[chunkx, chunky, blockx, blocky].isSolid())
                         {
                             col = true;
                         }
@@ -226,7 +189,7 @@ namespace Eldham
                     int chunky = (int)(Math.Floor((float)y / WorldGen.CHUNK_SIZE) + 1);
                     int blockx = (x % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                     int blocky = (y % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
-                    if (chunks[chunkx, chunky][blockx, blocky].isSolid())
+                    if (chunks[chunkx, chunky, blockx, blocky].isSolid())
                     {
                         col = true;
                     }
@@ -251,7 +214,7 @@ namespace Eldham
                     int chunky = (int)(Math.Floor((float)y / WorldGen.CHUNK_SIZE) + 1);
                     int blockx = (x % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
                     int blocky = (y % WorldGen.CHUNK_SIZE + WorldGen.CHUNK_SIZE) % WorldGen.CHUNK_SIZE;
-                    if (chunks[chunkx, chunky][blockx, blocky].isSolid())
+                    if (chunks[chunkx, chunky, blockx, blocky].isSolid())
                     {
                         col = true;
                     }
